@@ -121,6 +121,50 @@ end
     end
 end
 
+@recipe function plot_qs(m::SVDD.SVDDClassifier, qs::OneClassActiveLearning.QueryStrategies.QuerySynthesisStrategy, query, history=Vector{Array{Float64, 2}}(); grid_resolution = 100, axis_overhang = 0.2)
+    grid_range, grid_data = OCALPlots.get_grid(extrema(m.data)..., grid_resolution, axis_overhang)
+
+    data_pools = labelmap2vec(m.pools)
+    qs_score_f = OneClassActiveLearning.QueryStrategies.qs_score_function(qs, m.data, labelmap(data_pools))
+    grid_scores = reshape(qs_score_f(grid_data), grid_resolution, grid_resolution)
+
+    title := "Query Scores"
+    cbar := false
+    @series begin
+        seriestype := :contourf
+        seriescolor --> :heat
+        levels := range(minimum(grid_scores), 0, length=25)
+        grid_range, grid_range, grid_scores
+    end
+
+    colors = (not_in_history = :white)
+    seriestype := :scatter
+    markersize := 5
+    markeralpha := 0.7
+
+    if length(history) > 1
+        @series begin
+            label := "history"
+            markercolor := :orange
+            markershape := :square
+            ([x[1] for x in history], [x[2] for x in history])
+        end
+    end
+
+    @series begin
+        label := "non-history"
+        markercolor := :lightgrey
+        (m.data[1, 1:(end - length(history))], m.data[2, 1:(end - length(history))])
+    end
+
+    @series begin
+        label := "query-selection"
+        markercolor := :black
+        markershape := :star5
+        markersize := 7
+        ([query[1]], [query[2]])
+    end
+end
 
 @recipe function plot_svdd(m::SVDD.SVDDClassifier, poolmap::Dict{Symbol, Vector{Int}})
     seriestype := :scatter
@@ -156,6 +200,20 @@ end
     @series begin
         subplot := 3
        (m, poolmap)
+    end
+end
+
+@recipe function f(m::SVDD.SVDDClassifier, qs::OneClassActiveLearning.QueryStrategies.QuerySynthesisStrategy, query, history, labels::Vector{Symbol}, poolmap::Dict{Symbol, Vector{Int}})
+    layout := grid(1, 2)
+    legend --> :topright
+    @series begin
+       subplot := 1
+       (m, labels)
+    end
+
+    @series begin
+        subplot := 2
+       (m, qs, query, history)
     end
 end
 
