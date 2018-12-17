@@ -21,8 +21,8 @@ function get_legend_text(l, dc)
     end
 end
 
-@recipe function plot_svdd(m::SVDD.SVDDClassifier, labels::Vector{Symbol}; grid_resolution = 100, axis_overhang = 0.2)
-    grid_range, grid_data = get_grid(extrema(m.data)..., grid_resolution, axis_overhang)
+@recipe function plot_svdd(m::SVDD.SVDDClassifier, labels::Vector{Symbol}; grid_resolution = 100, axis_overhang = 0.2, binary_tuning_data=nothing)
+    grid_range, grid_data = OCALPlots.get_grid(extrema(m.data)..., grid_resolution, axis_overhang)
     grid_scores = reshape(SVDD.predict(m, grid_data), grid_resolution, grid_resolution)
     data_class = SVDD.classify.(SVDD.predict(m, m.data))
     title := "Decision Boundary"
@@ -34,7 +34,7 @@ end
     end
 
     colors = (inlier = :blue, outlier = :red)
-    shapes = (inlier = :circle, outlier = :star8)
+    shapes = (inlier = :circle, outlier = :rect)
 
     markeralpha --> 0.7
     markersize --> 5
@@ -45,10 +45,26 @@ end
             markershape := shapes[dc]
             @series begin
                 seriestype := :scatter
-                label := get_legend_text(l, dc)
-                split_2d_array(m.data, (labels.==l) .& (data_class .== dc))
+                label := OCALPlots.get_legend_text(l, dc)
+                OCALPlots.split_2d_array(m.data, (labels.==l) .& (data_class .== dc))
             end
        end
+    end
+
+    if binary_tuning_data !== nothing
+        seriestype := :scatter
+        @series begin
+            markershape := :utriangle
+            markercolor := colors[:outlier]
+            label := "Artificial Outlier"
+            (binary_tuning_data[2][1, :], binary_tuning_data[2][2, :])
+        end
+        @series begin
+            markershape := :dtriangle
+            markercolor := colors[:inlier]
+            label := "Artificial Inlier"
+            (binary_tuning_data[1][1, :], binary_tuning_data[1][2, :])
+        end
     end
 
     @series begin
